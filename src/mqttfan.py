@@ -156,6 +156,7 @@ class MqttFanControl():
         #MQTT startup
         logging.info('Starting MQTT client')
         self.mqttclient.username_pw_set(self.mqtt_server_user, password=self.mqtt_server_password)
+        self.mqttclient.will_set(self.availability_topic, payload='{"state": "offline"}', qos=1, retain=True)
         self.mqttclient.connect(self.mqtt_server_ip, self.mqtt_server_port, 60)
         self.mqttclient.loop_start()
         logging.info('MQTT client started')
@@ -208,7 +209,6 @@ class MqttFanControl():
         self.mqttclient.subscribe(self.mqtt_mode_command_topic)
 
         self.mqttclient.publish(self.availability_topic, payload='{"state": "online"}', qos=1, retain=True)
-        self.mqttclient.will_set(self.availability_topic, payload='{"state": "offline"}', qos=1, retain=True)
 
     def update_auto(self):
         logging.info(f'Updating fan state')
