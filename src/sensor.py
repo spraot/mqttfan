@@ -4,7 +4,7 @@ class TempSensor():
     __temp = None
     __humidity = None
     __last_seen = None
-    timeout = 90*60
+    timeout = 30*60
 
     def __init__(self, name):
         self.name = name

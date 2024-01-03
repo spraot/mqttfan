@@ -1,13 +1,15 @@
-topic_prefix: pi/io
+topic_prefix: pi
+name: fan
 mqtt_server_ip: localhost
 mqtt_server_port: 1883
 mqtt_server_user: mqtt
 mqtt_server_password: 123abc
 
-pump: revpi/io/heat_pump/set
+update_freq: 300 # minutes
 
-rooms:
-  office:
-    sensors:
-      - zigbee2mqtt/office/temp_sensor
-    output_heat_topic: revpi/io/office/heat/set
+weather_temp_topic: weather/current
+mqtt_set_device_state_topic: zigbee2mqtt/fan
+mqtt_set_device_highspeed_state_topic: zigbee2mqtt/fan/highspeed
+
+sensors:
+  - zigbee2mqtt/office/temp_sensor

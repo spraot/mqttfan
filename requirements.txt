@@ -1,4 +1,2 @@
 paho-mqtt==1.5.0
 PyYAML==5.3.1
-suntime==1.2.5
-simple-pid==0.2.4

@@ -13,4 +13,4 @@ RUN pip install -r requirements.txt
 
 COPY src/* ./
 
-CMD [ "python", "mqtt_heat.py", "/config.yml" ]
+CMD [ "python", "mqttfan.py", "/config.yml" ]
