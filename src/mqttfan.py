@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from math import floor
+from math import floor, cos, pi
 import os
 import sys
 import datetime
@@ -49,7 +49,7 @@ class MqttFanControl():
     fan_mode = MODE_AUTO
     mqtt_set_device_state_topic = None
     mqtt_set_device_highspeed_state_topic = None
-    min_duty_cycle = 0.1
+    min_duty_cycle = 0.15
     off_cycle_count = 0
 
     mqtt_topic_map = {}
@@ -221,8 +221,9 @@ class MqttFanControl():
         avg_temp = mean([sensor.get_temperature() for sensor in self.sensors.values() if sensor.get_temperature() is not None])
         max_humidity = max([sensor.get_humidity() for sensor in self.sensors.values() if sensor.get_humidity() is not None])
 
-        self.fan_state = max_humidity > 52
-        self.fan_highspeed_state = max_humidity > 80
+        day_of_year = datetime.datetime.now().timetuple().tm_yday
+        self.fan_state = max_humidity > 48 + 10*(cos((2*(day_of_year-30)/365+1)*pi)+1)/2 # 58 in summer, 48 in winter
+        self.fan_highspeed_state = max_humidity > 60
 
         if self.weather_temp is not None:
             if self.weather_temp < 22 and avg_temp > 25:
