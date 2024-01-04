@@ -221,12 +221,15 @@ class MqttFanControl():
         avg_temp = mean([sensor.get_temperature() for sensor in self.sensors.values() if sensor.get_temperature() is not None])
         max_humidity = max([sensor.get_humidity() for sensor in self.sensors.values() if sensor.get_humidity() is not None])
 
+        logging.debug(f'avg_temp: {avg_temp}, max_humidity: {max_humidity}')
+
         day_of_year = datetime.datetime.now().timetuple().tm_yday
         self.fan_state = max_humidity > 48 + 10*(cos((2*(day_of_year+30)/365+1)*pi)+1)/2 # 58 in summer, 48 in winter
         self.fan_highspeed_state = max_humidity > 60
 
         if self.weather_temp is not None:
             if self.weather_temp < 22 and avg_temp > 25:
+                logging.info('Turning on fan to cool down house')
                 self.fan_state = True
                 self.fan_highspeed_state = True
         else:
