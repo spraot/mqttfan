@@ -6,7 +6,7 @@ import sys
 import datetime
 import json
 import yaml
-from statistics import mean
+from statistics import StatisticsError, mean
 from threading import Event
 import paho.mqtt.client as mqtt
 import time
@@ -20,6 +20,9 @@ MODE_AUTO = 'auto'
 MODE_OFF = 'off'
 MODE_LOW = 'low'
 MODE_HIGH = 'high'
+
+def not_none(x):
+    return x is not None
 
 class GracefulKiller:
   def __init__(self):
@@ -218,17 +221,23 @@ class MqttFanControl():
     def update_auto(self):
         logging.info(f'Updating fan state')
 
-        avg_temp = mean([sensor.get_temperature() for sensor in self.sensors.values() if sensor.get_temperature() is not None])
-        max_humidity = max([sensor.get_humidity() for sensor in self.sensors.values() if sensor.get_humidity() is not None])
+        try:
+            avg_temp = mean(filter(not_none, [s.get_temperature() for s in self.sensors.values()]))
+        except StatisticsError:
+            avg_temp = None
+        try:
+            max_humidity = max(filter(not_none, [s.get_humidity() for s in self.sensors.values()]))
+        except StatisticsError:
+            max_humidity = None
 
         logging.debug(f'avg_temp: {avg_temp}, max_humidity: {max_humidity}')
 
         day_of_year = datetime.datetime.now().timetuple().tm_yday
-        self.fan_state = max_humidity > 48 + 10*(cos((2*(day_of_year+30)/365+1)*pi)+1)/2 # 58 in summer, 48 in winter
-        self.fan_highspeed_state = max_humidity > 60
+        self.fan_state = max_humidity and max_humidity > 48 + 10*(cos((2*(day_of_year+30)/365+1)*pi)+1)/2 # activate fan at 58 in summer, 48 in winter
+        self.fan_highspeed_state = max_humidity and max_humidity > 60
 
         if self.weather_temp is not None:
-            if self.weather_temp < 22 and avg_temp > 25:
+            if self.weather_temp < 22 and avg_temp and avg_temp > 25:
                 logging.info('Turning on fan to cool down house')
                 self.fan_state = True
                 self.fan_highspeed_state = True
