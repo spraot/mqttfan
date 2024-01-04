@@ -176,7 +176,7 @@ class MqttFanControl():
                 self.update_auto()
                 self.apply_state()
                 self.mqtt_broadcast_state()
-            elif self.fan_highspeed_state and self.mqtt_set_device_highspeed_state_topic:
+            elif self.fan_state and self.fan_highspeed_state and self.mqtt_set_device_highspeed_state_topic:
                 self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, payload='on', qos=1, retain=False)   
 
             if self.fan_state:
