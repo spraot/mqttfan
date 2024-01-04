@@ -179,6 +179,11 @@ class MqttFanControl():
             elif self.fan_highspeed_state and self.mqtt_set_device_highspeed_state_topic:
                 self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, payload='on', qos=1, retain=False)   
 
+            if self.fan_state:
+                self.off_cycle_count = 0
+            else:
+                self.off_cycle_count += 1
+
             self.killer.kill_now.wait(self.update_freq - (datetime.datetime.now() - start).total_seconds())
 
     def programend(self):
