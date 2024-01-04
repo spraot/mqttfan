@@ -222,7 +222,7 @@ class MqttFanControl():
         max_humidity = max([sensor.get_humidity() for sensor in self.sensors.values() if sensor.get_humidity() is not None])
 
         day_of_year = datetime.datetime.now().timetuple().tm_yday
-        self.fan_state = max_humidity > 48 + 10*(cos((2*(day_of_year-30)/365+1)*pi)+1)/2 # 58 in summer, 48 in winter
+        self.fan_state = max_humidity > 48 + 10*(cos((2*(day_of_year+30)/365+1)*pi)+1)/2 # 58 in summer, 48 in winter
         self.fan_highspeed_state = max_humidity > 60
 
         if self.weather_temp is not None:
