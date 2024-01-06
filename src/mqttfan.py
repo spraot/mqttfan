@@ -14,7 +14,7 @@ import signal
 import threading
 import logging
 import atexit
-from sensor import TempSensor
+from sensor import Sensor
 
 MODE_AUTO = 'auto'
 MODE_OFF = 'off'
@@ -48,7 +48,6 @@ class MqttFanControl():
     unique_id_suffix = '_mqttfan'
     unique_id = None
     weather_topic = None
-    weather_temp = None
     fan_mode = MODE_AUTO
     mqtt_set_device_state_topic = None
     mqtt_set_device_highspeed_state_topic = None
@@ -63,6 +62,7 @@ class MqttFanControl():
 
         self.mqtt_topic_map = {}
         self.sensors = {}
+        self.weather = Sensor('weather')
 
         if len(sys.argv) > 1:
             self.config_file = sys.argv[1]
@@ -70,14 +70,10 @@ class MqttFanControl():
         self.load_config()
 
         for topic, sensor in self.sensors.items():
-            def sensor_callback(topic, payload):
-                sensor.update(json.loads(payload))
-            self.mqtt_topic_map[topic] = sensor_callback
+            self.mqtt_topic_map[topic] = sensor
 
         if self.weather_topic:
-            def weather_callback(topic, payload):
-                self.weather_temp = json.loads(payload)['temperature']
-            self.mqtt_topic_map[self.weather_topic] = weather_callback
+            self.mqtt_topic_map[self.weather_topic] = self.weather
 
         logging.debug('sensor list: '+', '.join(self.sensors.keys()))
         logging.debug('subscribed topics list: '+', '.join(self.mqtt_topic_map.keys()))
@@ -115,7 +111,7 @@ class MqttFanControl():
 
         if 'sensors' in config:
             for sensor_topic in config['sensors']:
-                self.sensors[sensor_topic] = TempSensor(sensor_topic)
+                self.sensors[sensor_topic] = Sensor(sensor_topic)
 
         self.mqtt_config_topic = '{}/fan/{}/config'.format(self.homeassistant_prefix, self.unique_id)
         self.mqtt_state_topic = '{}/{}'.format(self.topic_prefix, self.id)
@@ -222,12 +218,12 @@ class MqttFanControl():
         logging.info(f'Updating fan state')
 
         try:
-            avg_temp = mean(filter(not_none, [s.get_temperature() for s in self.sensors.values()]))
+            avg_temp = mean(filter(not_none, [s.getValue('temperature') for s in self.sensors.values()]))
         except StatisticsError:
             avg_temp = None
         try:
-            max_humidity = max(filter(not_none, [s.get_humidity() for s in self.sensors.values()]))
-        except StatisticsError:
+            max_humidity = max(filter(not_none, [s.getValue('humidity') for s in self.sensors.values()]))
+        except ValueError:
             max_humidity = None
 
         logging.debug(f'avg_temp: {avg_temp}, max_humidity: {max_humidity}')
@@ -236,8 +232,8 @@ class MqttFanControl():
         self.fan_state = max_humidity and max_humidity > 48 + 10*(cos((2*(day_of_year+30)/365+1)*pi)+1)/2 # activate fan at 58 in summer, 48 in winter
         self.fan_highspeed_state = max_humidity and max_humidity > 65
 
-        if self.weather_temp is not None:
-            if self.weather_temp < 22 and avg_temp and avg_temp > 25:
+        if self.weather.is_connected():
+            if self.weather.getValue('temperature') < 22 and avg_temp and avg_temp > 25:
                 logging.info('Turning on fan to cool down house')
                 self.fan_state = True
                 self.fan_highspeed_state = True
@@ -295,7 +291,7 @@ class MqttFanControl():
 
             if topic in self.mqtt_topic_map:
                 logging.debug('Received MQTT message for other topic ' + msg.topic)
-                self.mqtt_topic_map[topic](msg.topic, payload_as_string)
+                self.mqtt_topic_map[topic].update(json.loads(payload_as_string))
 
         except Exception as e:
             logging.error('Encountered error: '+str(e))
