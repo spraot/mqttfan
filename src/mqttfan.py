@@ -55,14 +55,14 @@ class MqttFanControl():
     min_duty_cycle = 0.15
     off_cycle_count = 0
 
-    mqtt_topic_map = {}
-    sensors = {}
-
     def __init__(self):
         logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'), format='%(asctime)s;<%(levelname)s>;%(message)s')
         logging.info('Init')
 
         self.killer = GracefulKiller()
+
+        self.mqtt_topic_map = {}
+        self.sensors = {}
 
         if len(sys.argv) > 1:
             self.config_file = sys.argv[1]
@@ -234,7 +234,7 @@ class MqttFanControl():
 
         day_of_year = datetime.datetime.now().timetuple().tm_yday
         self.fan_state = max_humidity and max_humidity > 48 + 10*(cos((2*(day_of_year+30)/365+1)*pi)+1)/2 # activate fan at 58 in summer, 48 in winter
-        self.fan_highspeed_state = max_humidity and max_humidity > 60
+        self.fan_highspeed_state = max_humidity and max_humidity > 65
 
         if self.weather_temp is not None:
             if self.weather_temp < 22 and avg_temp and avg_temp > 25:
