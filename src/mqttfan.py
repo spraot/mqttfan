@@ -234,10 +234,11 @@ class MqttFanControl():
         self.fan_highspeed_state = max_humidity and max_humidity > 65
 
         if self.weather.is_connected():
-            if avg_temp and avg_temp > 24 and self.weather.getValue('temperature') < avg_temp-3:
+            if avg_temp and avg_temp > 24 and self.weather.getValue('temperature') < avg_temp-2.5:
                 logging.info('Turning on fan to cool down house')
                 self.fan_state = True
-                self.fan_highspeed_state = True
+                if avg_temp > 24.5:
+                    self.fan_highspeed_state = True
         else:
             logging.warning('Weather temperature is not available')
 
