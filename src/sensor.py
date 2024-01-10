@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 class Sensor():
     __last_message = {}
     __last_seen = None
-    timeout = 30*60
+    timeout = 60*60
 
     def __init__(self, name):
         self.name = name
