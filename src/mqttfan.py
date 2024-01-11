@@ -229,7 +229,7 @@ class MqttFanControl():
         logging.info(f'avg_temp: {avg_temp}, max_humidity: {max_humidity}')
 
         day_of_year = datetime.datetime.now().timetuple().tm_yday
-        humidity_threshold = 48 + 10*(cos((2*(day_of_year+30)/365+1)*pi)+1)/2 # activate fan at 58 in summer, 48 in winter
+        humidity_threshold = 48 if datetime.datetime.now().month < 6 or datetime.datetime.now().month > 11 else 60
         self.fan_state = max_humidity and max_humidity > humidity_threshold
         self.fan_highspeed_state = max_humidity and max_humidity > 65
 
