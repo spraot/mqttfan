@@ -3,7 +3,7 @@
 from math import floor, cos, pi
 import os
 import sys
-import datetime
+from datetime import datetime
 import json
 import yaml
 from statistics import StatisticsError, mean
@@ -168,7 +168,7 @@ class MqttFanControl():
     def main(self):
         self.killer.kill_now.wait(10)
         while not self.killer.kill_now.is_set():
-            start = datetime.datetime.now()
+            start = datetime.now()
 
             if self.fan_mode == MODE_AUTO:
                 self.update_auto()
@@ -177,7 +177,7 @@ class MqttFanControl():
             elif self.fan_state and self.fan_highspeed_state and self.mqtt_set_device_highspeed_state_topic:
                 self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, payload='on', qos=1, retain=False)
 
-            self.killer.kill_now.wait(self.update_freq - (datetime.datetime.now() - start).total_seconds())
+            self.killer.kill_now.wait(self.update_freq - (datetime.now() - start).total_seconds())
 
     def programend(self):
         logging.info('stopping')
@@ -218,7 +218,7 @@ class MqttFanControl():
         except ValueError:
             max_humidity = None
 
-        humidity_threshold = 48 if datetime.datetime.now().month < 6 or datetime.datetime.now().month > 11 else 60
+        humidity_threshold = 48 if datetime.now().month < 6 or datetime.now().month > 11 else 60
         self.fan_state = max_humidity and max_humidity > humidity_threshold
         self.fan_highspeed_state = max_humidity and max_humidity > 65
 
