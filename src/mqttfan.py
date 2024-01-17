@@ -209,8 +209,6 @@ class MqttFanControl():
         self.mqttclient.publish(self.availability_topic, payload='{"state": "online"}', qos=1, retain=True)
 
     def update_auto(self):
-        logging.info(f'Updating fan state')
-
         try:
             avg_temp = mean(filter(not_none, [s.getValue('temperature') for s in self.sensors.values()]))
         except StatisticsError:
@@ -220,15 +218,14 @@ class MqttFanControl():
         except ValueError:
             max_humidity = None
 
-        logging.info(f'avg_temp: {avg_temp}, max_humidity: {max_humidity}')
-
-        day_of_year = datetime.datetime.now().timetuple().tm_yday
         humidity_threshold = 48 if datetime.datetime.now().month < 6 or datetime.datetime.now().month > 11 else 60
         self.fan_state = max_humidity and max_humidity > humidity_threshold
         self.fan_highspeed_state = max_humidity and max_humidity > 65
 
+        cold_air_intake = False
         if self.weather.is_connected():
-            if avg_temp and avg_temp > 24 and self.weather.getValue('temperature') < avg_temp-2.5:
+            cold_air_intake = avg_temp and avg_temp > 24 and self.weather.getValue('temperature') < avg_temp-2.5
+            if cold_air_intake:
                 logging.info('Turning on fan to cool down house')
                 self.fan_state = True
                 if avg_temp > 24.5:
@@ -236,8 +233,11 @@ class MqttFanControl():
         else:
             logging.warning('Weather temperature is not available')
 
-        if datetime.time().minute % 30 < self.min_duty_cycle * 30:
+        duty_cycle = datetime.now().minute % 30 < self.min_duty_cycle * 30
+        if duty_cycle:
             self.fan_state = True
+
+        logging.info(f'Updating fan state, state={self.fan_state}, hs={self.fan_highspeed_state}, avg_temp: {avg_temp:.1f}, max_hmdty: {max_humidity:.0f}%, duty_cycle: {duty_cycle}, cold_air_intake: {cold_air_intake}')
 
     def apply_state(self):
         if not self.fan_state:
