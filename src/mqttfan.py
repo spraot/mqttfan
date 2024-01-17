@@ -52,6 +52,7 @@ class MqttFanControl():
     mqtt_set_device_state_topic = None
     mqtt_set_device_highspeed_state_topic = None
     min_duty_cycle = 0.15
+    last_fan_state = None
 
     def __init__(self):
         logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'), format='%(asctime)s;<%(levelname)s>;%(message)s')
@@ -240,8 +241,9 @@ class MqttFanControl():
         logging.info(f'Updating fan state, state={self.fan_state}, hs={self.fan_highspeed_state}, avg_temp: {avg_temp:.1f}, max_hmdty: {max_humidity:.0f}%, duty_cycle: {duty_cycle}, cold_air_intake: {cold_air_intake}')
 
     def apply_state(self):
-        if not self.fan_state:
+        if self.last_fan_state and not self.fan_state and self.mqtt_set_device_highspeed_state_topic:
             self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, 'off', qos=1, retain=False)
+        self.last_fan_state = self.fan_state
 
         self.mqttclient.publish(self.mqtt_set_device_state_topic, payload='on' if self.fan_state else 'off', qos=1, retain=False)
 
