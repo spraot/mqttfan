@@ -197,15 +197,15 @@ class MqttFanControl():
         self.configure_mqtt()
 
         #Subsribe to MQTT updates
+        self.mqttclient.subscribe(self.mqtt_state_topic)
+        self.mqttclient.subscribe(self.mqtt_command_topic)
+        self.mqttclient.subscribe(self.mqtt_mode_command_topic)
+        
         for topic in self.mqtt_topic_map.keys():
             self.mqttclient.subscribe(topic)
 
         if self.weather_topic:
             self.mqttclient.subscribe(self.weather_topic)
-
-        self.mqttclient.subscribe(self.mqtt_state_topic)
-        self.mqttclient.subscribe(self.mqtt_command_topic)
-        self.mqttclient.subscribe(self.mqtt_mode_command_topic)
 
         self.mqttclient.publish(self.availability_topic, payload='{"state": "online"}', qos=1, retain=True)
 
