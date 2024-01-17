@@ -52,7 +52,6 @@ class MqttFanControl():
     mqtt_set_device_state_topic = None
     mqtt_set_device_highspeed_state_topic = None
     min_duty_cycle = 0.15
-    off_cycle_count = 0
 
     def __init__(self):
         logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'), format='%(asctime)s;<%(levelname)s>;%(message)s')
@@ -176,12 +175,7 @@ class MqttFanControl():
                 self.apply_state()
                 self.mqtt_broadcast_state()
             elif self.fan_state and self.fan_highspeed_state and self.mqtt_set_device_highspeed_state_topic:
-                self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, payload='on', qos=1, retain=False)   
-
-            if self.fan_state:
-                self.off_cycle_count = 0
-            else:
-                self.off_cycle_count += 1
+                self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, payload='on', qos=1, retain=False)
 
             self.killer.kill_now.wait(self.update_freq - (datetime.datetime.now() - start).total_seconds())
 
@@ -242,7 +236,7 @@ class MqttFanControl():
         else:
             logging.warning('Weather temperature is not available')
 
-        if 1 / (self.off_cycle_count + 1) < self.min_duty_cycle:
+        if datetime.time().minute % 30 < self.min_duty_cycle * 30:
             self.fan_state = True
 
     def apply_state(self):
@@ -252,6 +246,7 @@ class MqttFanControl():
         self.mqttclient.publish(self.mqtt_set_device_state_topic, payload='on' if self.fan_state else 'off', qos=1, retain=False)
 
         if self.fan_state and self.mqtt_set_device_highspeed_state_topic:
+            time.sleep(2)
             self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, payload='on' if self.fan_highspeed_state else 'off', qos=1, retain=False)
 
     def set_mode(self, mode, mqtt_broadcast=True):
@@ -294,6 +289,8 @@ class MqttFanControl():
             if topic in self.mqtt_topic_map:
                 logging.debug('Received MQTT message for other topic ' + msg.topic)
                 self.mqtt_topic_map[topic].update(json.loads(payload_as_string))
+                self.update_auto()
+                self.apply_state()
 
         except Exception as e:
             logging.error('Encountered error: '+str(e))
