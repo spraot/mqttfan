@@ -60,6 +60,9 @@ class MqttFanControl():
 
         self.killer = GracefulKiller()
 
+        self.fan_state = None
+        self.fan_highspeed_state = None
+
         self.mqtt_topic_map = {}
         self.sensors = {}
         self.weather = Sensor('weather')
@@ -173,8 +176,6 @@ class MqttFanControl():
 
             if self.fan_mode == MODE_AUTO:
                 self.update_auto()
-                self.apply_state()
-                self.mqtt_broadcast_state()
             elif self.fan_state and self.fan_highspeed_state and self.mqtt_set_device_highspeed_state_topic:
                 self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, payload='on', qos=1, retain=False)
 
@@ -210,6 +211,8 @@ class MqttFanControl():
         self.mqttclient.publish(self.availability_topic, payload='{"state": "online"}', qos=1, retain=True)
 
     def update_auto(self):
+        old_state = (self.fan_state, self.fan_highspeed_state)
+
         try:
             avg_temp = mean(filter(not_none, [s.getValue('temperature') for s in self.sensors.values()]))
         except StatisticsError:
@@ -227,7 +230,6 @@ class MqttFanControl():
         if self.weather.is_connected():
             cold_air_intake = avg_temp and avg_temp > 24 and self.weather.getValue('temperature') < avg_temp-2.5
             if cold_air_intake:
-                logging.info('Turning on fan to cool down house')
                 self.fan_state = True
                 if avg_temp > 24.5:
                     self.fan_highspeed_state = True
@@ -238,7 +240,9 @@ class MqttFanControl():
         if duty_cycle:
             self.fan_state = True
 
-        logging.info(f'Updating fan state, state={self.fan_state}, hs={self.fan_highspeed_state}, avg_temp: {avg_temp:.1f}, max_hmdty: {max_humidity:.0f}%, duty_cycle: {duty_cycle}, cold_air_intake: {cold_air_intake}')
+        if old_state != (self.fan_state, self.fan_highspeed_state):
+            logging.info(f'Updating fan state, state={self.fan_state}, hs={self.fan_highspeed_state}, avg_temp: {avg_temp:.1f}, max_hmdty: {max_humidity:.0f}%, duty_cycle: {duty_cycle}, cold_air_intake: {cold_air_intake}')
+            self.apply_state()
 
     def apply_state(self):
         if self.last_fan_state and not self.fan_state and self.mqtt_set_device_highspeed_state_topic:
@@ -250,6 +254,8 @@ class MqttFanControl():
         if self.fan_state and self.mqtt_set_device_highspeed_state_topic:
             time.sleep(2)
             self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, payload='on' if self.fan_highspeed_state else 'off', qos=1, retain=False)
+            
+        self.mqtt_broadcast_state()
 
     def set_mode(self, mode, mqtt_broadcast=True):
         if mode == MODE_AUTO:
@@ -266,7 +272,8 @@ class MqttFanControl():
             logging.error('Unknown mode: '+mode)
             return
         self.fan_mode = mode
-        self.apply_state()
+        if mode != MODE_AUTO:
+            self.apply_state()
         if mqtt_broadcast:
             self.mqtt_broadcast_state()
 
@@ -292,7 +299,6 @@ class MqttFanControl():
                 logging.debug('Received MQTT message for other topic ' + msg.topic)
                 self.mqtt_topic_map[topic].update(json.loads(payload_as_string))
                 self.update_auto()
-                self.apply_state()
 
         except Exception as e:
             logging.error('Encountered error: '+str(e))
