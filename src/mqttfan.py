@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from math import floor, cos, pi
+from pathlib import Path
 import os
 import sys
 from datetime import datetime
@@ -170,9 +171,10 @@ class MqttFanControl():
         logging.info('started')
 
     def main(self):
-        self.killer.kill_now.wait(10)
+        self.killer.kill_now.wait(5)
         while not self.killer.kill_now.is_set():
             start = datetime.now()
+            Path('healthcheck').touch()
 
             if self.fan_mode == MODE_AUTO:
                 self.update_auto()
