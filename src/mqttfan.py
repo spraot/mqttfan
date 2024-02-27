@@ -242,8 +242,8 @@ class MqttFanControl():
         if duty_cycle:
             self.fan_state = True
 
+        logging.info(f'Updating fan state, state={self.fan_state}, hs={self.fan_highspeed_state}, avg_temp: {avg_temp:.1f}, max_hmdty: {max_humidity:.0f}%, duty_cycle: {duty_cycle}, cold_air_intake: {cold_air_intake}')
         if old_state != (self.fan_state, self.fan_highspeed_state):
-            logging.info(f'Updating fan state, state={self.fan_state}, hs={self.fan_highspeed_state}, avg_temp: {avg_temp:.1f}, max_hmdty: {max_humidity:.0f}%, duty_cycle: {duty_cycle}, cold_air_intake: {cold_air_intake}')
             self.apply_state()
 
     def apply_state(self):
