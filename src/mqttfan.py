@@ -224,7 +224,7 @@ class MqttFanControl():
         except ValueError:
             max_humidity = None
 
-        humidity_threshold = 48 if datetime.now().month < 6 or datetime.now().month > 11 else 60
+        humidity_threshold = 50 if datetime.now().month < 5 or datetime.now().month > 11 else 60
         self.fan_state = max_humidity and max_humidity > humidity_threshold
         self.fan_highspeed_state = max_humidity and max_humidity > 65
 
