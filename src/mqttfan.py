@@ -22,6 +22,21 @@ MODE_OFF = 'off'
 MODE_LOW = 'low'
 MODE_HIGH = 'high'
 
+humidity_thresholds = {
+    1: 51,
+    2: 51,
+    3: 51,
+    4: 55,
+    5: 60,
+    6: 60,
+    7: 60,
+    8: 60,
+    9: 60,
+    10: 55,
+    11: 51,
+    12: 51
+}
+
 def not_none(x):
     return x is not None
 
@@ -224,8 +239,7 @@ class MqttFanControl():
         except ValueError:
             max_humidity = None
 
-        humidity_threshold = 50 if datetime.now().month < 5 or datetime.now().month > 11 else 60
-        self.fan_state = max_humidity and max_humidity > humidity_threshold
+        self.fan_state = max_humidity and max_humidity > humidity_thresholds[datetime.now().month]
         self.fan_highspeed_state = max_humidity and max_humidity > 65
 
         cold_air_intake = False
@@ -238,7 +252,7 @@ class MqttFanControl():
         else:
             logging.warning('Weather temperature is not available')
 
-        duty_cycle = datetime.now().minute % 30 < self.min_duty_cycle * 30
+        duty_cycle = datetime.now().minute % 30 <= self.min_duty_cycle * 30
         if duty_cycle:
             self.fan_state = True
 
