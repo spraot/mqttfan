@@ -4,7 +4,7 @@ from math import floor, cos, pi
 from pathlib import Path
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import yaml
 from statistics import StatisticsError, mean
@@ -70,7 +70,7 @@ class MqttFanControl():
     min_duty_cycle = 0.15
     last_fan_state = None
     last_log_update = None
-    last_mqtt_broadcast = datetime.now() - datetime.timedelta(days=1)
+    last_mqtt_broadcast = datetime.now() - timedelta(days=1)
 
     def __init__(self):
         logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'), format='%(asctime)s;<%(levelname)s>;%(message)s')
