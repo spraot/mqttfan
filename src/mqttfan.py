@@ -70,6 +70,7 @@ class MqttFanControl():
     min_duty_cycle = 0.15
     last_fan_state = None
     last_log_update = None
+    last_mqtt_broadcast = datetime.now() - datetime.timedelta(days=1)
 
     def __init__(self):
         logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'), format='%(asctime)s;<%(levelname)s>;%(message)s')
@@ -265,6 +266,8 @@ class MqttFanControl():
 
         if state_changed:
             self.apply_state()
+        if (datetime.now() - self.last_mqtt_broadcast).total_seconds() > 5*60:
+            self.mqtt_broadcast_state()
 
     def apply_state(self):
         if self.last_fan_state and not self.fan_state and self.mqtt_set_device_highspeed_state_topic:
@@ -326,6 +329,7 @@ class MqttFanControl():
             logging.error('Encountered error: '+str(e))
 
     def mqtt_broadcast_state(self):
+        self.last_mqtt_broadcast = datetime.now()
         state = json.dumps({
             'state': 'on' if self.fan_state else 'off',
             'mode': self.fan_mode,
