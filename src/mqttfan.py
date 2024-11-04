@@ -22,19 +22,19 @@ MODE_OFF = 'off'
 MODE_LOW = 'low'
 MODE_HIGH = 'high'
 
-humidity_thresholds = {
-    1: 51,
-    2: 51,
-    3: 51,
-    4: 55,
-    5: 60,
-    6: 60,
-    7: 60,
-    8: 60,
-    9: 60,
-    10: 55,
-    11: 51,
-    12: 51
+average_temp_by_month = {
+    1: -2.8,
+    2: -2.5,
+    3: 0.1,
+    4: 5.7,
+    5: 11.2,
+    6: 15.2,
+    7: 18.1,
+    8: 16.7,
+    9: 12.6,
+    10: 6.7,
+    11: 2.7,
+    12: -0.8
 }
 
 def not_none(x):
@@ -64,6 +64,7 @@ class MqttFanControl():
     unique_id_suffix = '_mqttfan'
     unique_id = None
     weather_topic = None
+    forecast_topic = None
     fan_mode = MODE_AUTO
     mqtt_set_device_state_topic = None
     mqtt_set_device_highspeed_state_topic = None
@@ -84,6 +85,7 @@ class MqttFanControl():
         self.mqtt_topic_map = {}
         self.sensors = {}
         self.weather = Sensor('weather')
+        self.forecast = Sensor('forecast')
 
         if len(sys.argv) > 1:
             self.config_file = sys.argv[1]
@@ -95,6 +97,9 @@ class MqttFanControl():
 
         if self.weather_topic:
             self.mqtt_topic_map[self.weather_topic] = self.weather
+
+        if self.forecast_topic:
+            self.mqtt_topic_map[self.forecast_topic] = self.forecast
 
         logging.debug('sensor list: '+', '.join(self.sensors.keys()))
         logging.debug('subscribed topics list: '+', '.join(self.mqtt_topic_map.keys()))
@@ -115,7 +120,7 @@ class MqttFanControl():
         with open(self.config_file, 'r') as f:
             config = yaml.safe_load(f)
 
-        for key in ['name', 'id', 'topic_prefix', 'homeassistant_prefix', 'mqtt_server_ip', 'mqtt_server_port', 'mqtt_server_user', 'mqtt_server_password', 'unique_id', 'update_freq', 'weather_topic', 'mqtt_set_device_state_topic', 'mqtt_set_device_highspeed_state_topic']:
+        for key in ['name', 'id', 'topic_prefix', 'homeassistant_prefix', 'mqtt_server_ip', 'mqtt_server_port', 'mqtt_server_user', 'mqtt_server_password', 'unique_id', 'update_freq', 'weather_topic', 'forecast_topic', 'mqtt_set_device_state_topic', 'mqtt_set_device_highspeed_state_topic']:
             try:
                 self.__setattr__(key, config[key])
             except KeyError:
@@ -224,6 +229,9 @@ class MqttFanControl():
         if self.weather_topic:
             self.mqttclient.subscribe(self.weather_topic)
 
+        if self.forecast_topic:
+            self.mqttclient.subscribe(self.forecast_topic)
+
         for topic in self.mqtt_topic_map.keys():
             self.mqttclient.subscribe(topic)
 
@@ -241,7 +249,14 @@ class MqttFanControl():
         except ValueError:
             max_humidity = None
 
-        self.fan_state = max_humidity and max_humidity > humidity_thresholds[datetime.now().month]
+        forecast_temp = average_temp_by_month[datetime.now().month]
+        if self.forecast.is_connected():
+            forecast_temp = self.forecast.getValue('temperature')
+        elif self.weather.is_connected():
+            forecast_temp = self.weather.getValue('temperature')
+        humidity_threshold = 55 - 7 * (max(0, min(15, forecast_temp)) / 15)
+
+        self.fan_state = max_humidity and max_humidity > humidity_threshold
         self.fan_highspeed_state = max_humidity and max_humidity > 65
 
         cold_air_intake = False
