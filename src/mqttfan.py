@@ -37,6 +37,11 @@ average_temp_by_month = {
     12: -0.8
 }
 
+low_temp = -2
+high_temp = 15
+low_humidity = 48
+high_humidity = 60
+
 def not_none(x):
     return x is not None
 
@@ -254,7 +259,8 @@ class MqttFanControl():
             forecast_temp = self.forecast.getValue('temperature')
         elif self.weather.is_connected():
             forecast_temp = self.weather.getValue('temperature')
-        humidity_threshold = 55 - 7 * (max(0, min(15, forecast_temp)) / 15)
+        sat_temp = max(low_temp, min(high_temp, forecast_temp))
+        humidity_threshold = low_humidity + ((sat_temp - low_temp) / (high_temp - low_temp)) * (high_humidity - low_humidity)
 
         self.fan_state = max_humidity and max_humidity > humidity_threshold
         self.fan_highspeed_state = max_humidity and max_humidity > 65
