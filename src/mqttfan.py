@@ -282,6 +282,10 @@ class MqttFanControl():
         state_changed = old_state != (self.fan_state, self.fan_highspeed_state)
 
         if state_changed or self.last_log_update is None or (datetime.now() - self.last_log_update).total_seconds() > 120:
+            if not avg_temp:
+                avg_temp = 0
+            if not max_humidity:
+                max_humidity = 0
             logging.info(f'Updating fan state, state={self.fan_state}, hs={self.fan_highspeed_state}, avg_temp: {avg_temp:.1f}, max_hmdty: {max_humidity:.0f}%, duty_cycle: {duty_cycle}, cold_air_intake: {cold_air_intake}')
             self.last_log_update = datetime.now()
 
