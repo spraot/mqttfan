@@ -91,6 +91,8 @@ class MqttFanControl():
         self.sensors = {}
         self.weather = Sensor('weather')
         self.forecast = Sensor('forecast')
+        self.dryingcloset = None
+        self.laundryroom = None
 
         if len(sys.argv) > 1:
             self.config_file = sys.argv[1]
@@ -143,6 +145,12 @@ class MqttFanControl():
         if 'sensors' in config:
             for sensor_topic in config['sensors']:
                 self.sensors[sensor_topic] = Sensor(sensor_topic)
+        
+                if 'dryingcloset' in sensor_topic:
+                    self.dryingcloset = self.sensors[sensor_topic]
+
+                if 'laundryroom' in sensor_topic:
+                    self.laundryroom = self.sensors[sensor_topic]
 
         self.mqtt_config_topic = '{}/fan/{}/config'.format(self.homeassistant_prefix, self.unique_id)
         self.mqtt_state_topic = '{}/{}'.format(self.topic_prefix, self.id)
@@ -265,6 +273,12 @@ class MqttFanControl():
         self.fan_state = max_humidity and max_humidity > humidity_threshold
         self.fan_highspeed_state = max_humidity and max_humidity > 65
 
+        dryingcloset_diff = 0
+        if self.laundryroom and self.laundryroom.is_connected() and self.dryingcloset and self.dryingcloset.is_connected():
+            dryingcloset_diff = self.dryingcloset.getValue('humidity') - self.laundryroom.getValue('humidity')
+            self.fan_state = dryingcloset_diff > 4
+            self.fan_highspeed_state = dryingcloset_diff > 10
+
         cold_air_intake = False
         if self.weather.is_connected():
             cold_air_intake = avg_temp and avg_temp > 24 and self.weather.getValue('temperature') < avg_temp-2.5
@@ -286,7 +300,7 @@ class MqttFanControl():
                 avg_temp = 0
             if not max_humidity:
                 max_humidity = 0
-            logging.info(f'Updating fan state, state={self.fan_state}, hs={self.fan_highspeed_state}, avg_temp: {avg_temp:.1f}, max_hmdty: {max_humidity:.0f}%, duty_cycle: {duty_cycle}, cold_air_intake: {cold_air_intake}')
+            logging.info(f'Updating fan state, state={self.fan_state}, hs={self.fan_highspeed_state}, avg_temp: {avg_temp:.1f}, max_hmdty: {max_humidity:.0f}%, duty_cycle: {duty_cycle}, cold_air_intake: {cold_air_intake}, forecast_temp: {forecast_temp:.1f}, humidity_threshold: {humidity_threshold:.1f}, dryingcloset_diff: {dryingcloset_diff:.1f}')
             self.last_log_update = datetime.now()
 
         if state_changed:
