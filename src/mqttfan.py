@@ -156,6 +156,12 @@ class MqttFanControl():
         self.mqtt_state_topic = '{}/{}'.format(self.topic_prefix, self.id)
         self.availability_topic = '{}/{}/availability'.format(self.topic_prefix, self.id)
         self.homeassistant_status_topic = '{}/status'.format(self.homeassistant_prefix)
+        # Stale-config cleanup: mqttfan only ever publishes under
+        # homeassistant/fan/, so a config left behind by a past unique_id is
+        # always in this namespace. Scanning just our component keeps the ACL
+        # read tight (no need to read the whole discovery tree).
+        self.discovery_config_wildcard = '{}/fan/+/config'.format(self.homeassistant_prefix)
+        self._discovery_scan = None
         self.mqtt_command_topic = '{}/{}/set'.format(self.topic_prefix, self.id)
         self.mqtt_mode_command_topic = '{}/{}/mode/set'.format(self.topic_prefix, self.id)
 
@@ -182,12 +188,42 @@ class MqttFanControl():
                 "name": self.name,
                 "sw_version": "mqttfan"
             },
+            "origin": {"name": "mqttfan"},
             "unique_id": self.unique_id
         }
 
         json_conf = json.dumps(room_configuration)
         logging.debug('Broadcasting homeassistant configuration: ' + json_conf)
         self.mqttclient.publish(self.mqtt_config_topic, payload=json_conf, qos=1, retain=True)
+
+    def _start_discovery_cleanup(self):
+        # Approach A — the broker is the source of truth for what discovery
+        # configs actually exist. Subscribe to our component namespace, collect
+        # the retained configs that arrive for a short window, then (in _finish)
+        # clear any that are ours but no longer desired. Self-contained: no
+        # persisted manifest that could drift out of sync with reality.
+        self._discovery_scan = {}
+        self.mqttclient.subscribe(self.discovery_config_wildcard)
+        threading.Timer(3.0, self._finish_discovery_cleanup).start()
+
+    def _finish_discovery_cleanup(self):
+        scan, self._discovery_scan = self._discovery_scan, None
+        self.mqttclient.unsubscribe(self.discovery_config_wildcard)
+        if not scan:
+            return
+        desired = {self.mqtt_config_topic}
+        for topic, payload in scan.items():
+            if topic in desired or not payload:
+                continue
+            try:
+                conf = json.loads(payload)
+            except ValueError:
+                continue
+            # Only ever clear configs we published — never another integration's.
+            if conf.get('origin', {}).get('name') != 'mqttfan':
+                continue
+            logging.info('Clearing stale discovery config: ' + topic)
+            self.mqttclient.publish(topic, payload='', qos=1, retain=True)
 
     def start(self):
         logging.info('starting')
@@ -253,6 +289,9 @@ class MqttFanControl():
         self.mqttclient.subscribe(self.homeassistant_status_topic)
 
         self.mqttclient.publish(self.availability_topic, payload='{"state": "online"}', qos=1, retain=True)
+
+        # Clear discovery configs left behind by past unique_ids.
+        self._start_discovery_cleanup()
 
     def update_auto(self):
         old_state = (self.fan_state, self.fan_highspeed_state)
@@ -350,6 +389,11 @@ class MqttFanControl():
             payload_as_string = msg.payload.decode('utf-8')
             topic = str(msg.topic)
             logging.debug('Received MQTT message on topic: ' + msg.topic + ', payload: ' + payload_as_string + ', retained: ' + str(msg.retain))
+
+            # During a cleanup scan, collect retained discovery configs.
+            if self._discovery_scan is not None and msg.retain and topic.endswith('/config'):
+                self._discovery_scan[topic] = payload_as_string
+                return
 
             if topic == self.homeassistant_status_topic:
                 if payload_as_string == 'online':
