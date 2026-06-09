@@ -155,6 +155,7 @@ class MqttFanControl():
         self.mqtt_config_topic = '{}/fan/{}/config'.format(self.homeassistant_prefix, self.unique_id)
         self.mqtt_state_topic = '{}/{}'.format(self.topic_prefix, self.id)
         self.availability_topic = '{}/{}/availability'.format(self.topic_prefix, self.id)
+        self.homeassistant_status_topic = '{}/status'.format(self.homeassistant_prefix)
         self.mqtt_command_topic = '{}/{}/set'.format(self.topic_prefix, self.id)
         self.mqtt_mode_command_topic = '{}/{}/mode/set'.format(self.topic_prefix, self.id)
 
@@ -247,6 +248,9 @@ class MqttFanControl():
 
         for topic in self.mqtt_topic_map.keys():
             self.mqttclient.subscribe(topic)
+
+        # Re-announce discovery when Home Assistant restarts (birth message).
+        self.mqttclient.subscribe(self.homeassistant_status_topic)
 
         self.mqttclient.publish(self.availability_topic, payload='{"state": "online"}', qos=1, retain=True)
 
@@ -346,6 +350,12 @@ class MqttFanControl():
             payload_as_string = msg.payload.decode('utf-8')
             topic = str(msg.topic)
             logging.debug('Received MQTT message on topic: ' + msg.topic + ', payload: ' + payload_as_string + ', retained: ' + str(msg.retain))
+
+            if topic == self.homeassistant_status_topic:
+                if payload_as_string == 'online':
+                    logging.info('Home Assistant online — re-announcing discovery config')
+                    self.configure_mqtt()
+                return
 
             if topic == self.mqtt_mode_command_topic:
                 logging.debug('Received mode command from MQTT: {}'.format(payload_as_string))
