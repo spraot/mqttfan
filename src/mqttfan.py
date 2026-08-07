@@ -177,7 +177,7 @@ class MqttFanControl():
             ],
             "preset_modes": [
                 'auto',
-                'off'
+                'off',
                 'low',
                 'high'
             ],
@@ -250,8 +250,11 @@ class MqttFanControl():
 
             if self.fan_mode == MODE_AUTO:
                 self.update_auto()
-            elif self.fan_state and self.fan_highspeed_state and self.mqtt_set_device_highspeed_state_topic:
-                self.mqttclient.publish(self.mqtt_set_device_highspeed_state_topic, payload='on', qos=1, retain=False)
+            else:
+                # Forced mode: periodically re-assert the full relay state so a
+                # missed command or a device power cycle can't strand the fan in
+                # the wrong state for the rest of the mode's lifetime.
+                self.apply_state()
 
             self.killer.kill_now.wait(self.update_freq - (datetime.now() - start).total_seconds())
 
@@ -416,7 +419,12 @@ class MqttFanControl():
             if topic in self.mqtt_topic_map:
                 logging.debug('Received MQTT message for other topic ' + msg.topic)
                 self.mqtt_topic_map[topic].update(json.loads(payload_as_string))
-                self.update_auto()
+                # Sensor values are always kept fresh (so a later switch back to
+                # auto decides on current data), but they only drive the fan in
+                # auto mode — a forced low/high/off must hold until the mode is
+                # changed, not until the next sensor report.
+                if self.fan_mode == MODE_AUTO:
+                    self.update_auto()
 
         except Exception as e:
             logging.error('Encountered error: '+str(e))
