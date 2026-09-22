@@ -168,6 +168,14 @@ class MqttFanControl():
     def configure_mqtt(self):
         room_configuration = {
             'name': self.name,
+            # HA's MQTT fan schema requires command_topic; without it HA
+            # rejects the whole discovery config. On/off maps onto modes:
+            # the entity is "on" unless the mode is off, and turning it on
+            # from off resumes auto (see power handling in mqtt_on_message).
+            'command_topic': self.mqtt_command_topic,
+            'command_template': '{"power": "{{ value }}"}',
+            'state_topic': self.mqtt_state_topic,
+            'state_value_template': "{{ 'OFF' if value_json.mode == 'off' else 'ON' }}",
             'preset_mode_command_topic': self.mqtt_mode_command_topic,
             'json_attributes_topic': self.mqtt_state_topic,
             'preset_mode_state_topic': self.mqtt_state_topic,
@@ -410,7 +418,13 @@ class MqttFanControl():
 
             if topic == self.mqtt_command_topic:
                 logging.debug('Received command from MQTT: {}'.format(payload_as_string))
-                self.set_mode(json.loads(payload_as_string)['mode'])
+                command = json.loads(payload_as_string)
+                if 'mode' in command:
+                    self.set_mode(command['mode'])
+                elif command.get('power') == 'OFF':
+                    self.set_mode(MODE_OFF)
+                elif command.get('power') == 'ON' and self.fan_mode == MODE_OFF:
+                    self.set_mode(MODE_AUTO)
 
             if topic == self.mqtt_state_topic and msg.retain:
                 logging.info('Received retained state from MQTT: {}'.format(payload_as_string))
