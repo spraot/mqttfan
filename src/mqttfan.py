@@ -179,7 +179,7 @@ class MqttFanControl():
             'preset_mode_command_topic': self.mqtt_mode_command_topic,
             'json_attributes_topic': self.mqtt_state_topic,
             'preset_mode_state_topic': self.mqtt_state_topic,
-            'preset_mode_state_template': '{{ value_json.mode }}',
+            'preset_mode_value_template': '{{ value_json.mode }}',
             "availability": [
                 {'topic': self.availability_topic, 'value_template': '{{ value_json.state }}'},
             ],
